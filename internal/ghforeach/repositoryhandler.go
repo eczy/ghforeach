@@ -46,31 +46,31 @@ func (er *executionResult) JsonString() (string, error) {
 	return string(str), err
 }
 
-type ForeachRepositoryExecutorOutputFormat = int
+type RepositoryExecutorOutputFormat = int
 
 const (
-	ConsoleOutputFormat ForeachRepositoryExecutorOutputFormat = iota
+	ConsoleOutputFormat RepositoryExecutorOutputFormat = iota
 	JsonOutputFormat
 )
 
-type ForeachRepositoryExecutorOption = func(*ForeachRepositoryExecutor) error
+type RepositoryExecutorOption = func(*RepositoryExecutor) error
 
-func WithOrg(org string) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithOrg(org string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.org = &org
 		return nil
 	}
 }
 
-func WithUser(user string) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithUser(user string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.user = &user
 		return nil
 	}
 }
 
-func WithNameExp(exp string) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithNameExp(exp string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		regexp, err := regexp.Compile(exp)
 		if err != nil {
 			return err
@@ -80,8 +80,8 @@ func WithNameExp(exp string) ForeachRepositoryExecutorOption {
 	}
 }
 
-func WithNameList(names []string) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithNameList(names []string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		for _, name := range names {
 			fre.nameSet[name] = struct{}{}
 		}
@@ -89,8 +89,8 @@ func WithNameList(names []string) ForeachRepositoryExecutorOption {
 	}
 }
 
-func WithTopicExp(exp string) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithTopicExp(exp string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		regexp, err := regexp.Compile(exp)
 		if err != nil {
 			return err
@@ -100,8 +100,8 @@ func WithTopicExp(exp string) ForeachRepositoryExecutorOption {
 	}
 }
 
-func WithTopicList(topics []string) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithTopicList(topics []string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		for _, topic := range topics {
 			fre.nameSet[topic] = struct{}{}
 		}
@@ -109,64 +109,64 @@ func WithTopicList(topics []string) ForeachRepositoryExecutorOption {
 	}
 }
 
-func WithClient(client *github.Client) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithClient(client *github.Client) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.client = client
 		return nil
 	}
 }
 
-func WithLogger(logger *zap.Logger) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithLogger(logger *zap.Logger) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.logger = logger
 		return nil
 	}
 }
 
-func WithUserAuth(user, token string) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithUserAuth(user, token string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.authUser = &user
 		fre.authToken = &token
 		return nil
 	}
 }
 
-func WithOverwrite(b bool) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithOverwrite(b bool) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.overwrite = b
 		return nil
 	}
 }
 
-func WithCleanup(b bool) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithCleanup(b bool) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.cleanup = b
 		return nil
 	}
 }
 
-func WithTmpDir(dir string) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithTmpDir(dir string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.tmpDir = dir
 		return nil
 	}
 }
 
-func WithConcurrency(n int) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithConcurrency(n int) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.concurrency = n
 		return nil
 	}
 }
 
-func WithOutputFormat(format ForeachRepositoryExecutorOutputFormat) ForeachRepositoryExecutorOption {
-	return func(fre *ForeachRepositoryExecutor) error {
+func WithOutputFormat(format RepositoryExecutorOutputFormat) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
 		fre.outputFormat = format
 		return nil
 	}
 }
 
-type ForeachRepositoryExecutor struct {
+type RepositoryExecutor struct {
 	// api parameters
 	client    *github.Client
 	logger    *zap.Logger
@@ -184,18 +184,18 @@ type ForeachRepositoryExecutor struct {
 	cleanup      bool
 	tmpDir       string
 	concurrency  int
-	outputFormat ForeachRepositoryExecutorOutputFormat
+	outputFormat RepositoryExecutorOutputFormat
 	org          *string
 	user         *string
 }
 
-func NewForeachRepositoryExecutor(opts ...ForeachRepositoryExecutorOption) (*ForeachRepositoryExecutor, error) {
+func NewRepositoryExecutor(opts ...RepositoryExecutorOption) (*RepositoryExecutor, error) {
 	wd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 
-	exec := &ForeachRepositoryExecutor{
+	exec := &RepositoryExecutor{
 		client: github.NewClient(nil),
 		logger: zap.L(),
 		tmpDir: path.Join(wd, "tmp"),
@@ -211,7 +211,7 @@ func NewForeachRepositoryExecutor(opts ...ForeachRepositoryExecutorOption) (*For
 	return exec, nil
 }
 
-func (rh *ForeachRepositoryExecutor) Go(command string, ctx context.Context) error {
+func (rh *RepositoryExecutor) Go(command string, ctx context.Context) error {
 	if rh.overwrite {
 		rh.logger.Debug("removing temp directory", zap.String("path", rh.tmpDir))
 		err := os.RemoveAll(rh.tmpDir)
@@ -301,7 +301,7 @@ func (rh *ForeachRepositoryExecutor) Go(command string, ctx context.Context) err
 	return g.Wait()
 }
 
-func (rh *ForeachRepositoryExecutor) getRepositories(ctx context.Context, ch chan<- *github.Repository) error {
+func (rh *RepositoryExecutor) getRepositories(ctx context.Context, ch chan<- *github.Repository) error {
 	if rh.org != nil {
 		rh.logger.Debug("fetching organization repositories", zap.String("org", *rh.org))
 		return rh.getRepositoriesForOrg(ctx, *rh.org, ch)
@@ -314,7 +314,7 @@ func (rh *ForeachRepositoryExecutor) getRepositories(ctx context.Context, ch cha
 	}
 }
 
-func (rh *ForeachRepositoryExecutor) getRepositoriesForOrg(ctx context.Context, org string, ch chan<- *github.Repository) error {
+func (rh *RepositoryExecutor) getRepositoriesForOrg(ctx context.Context, org string, ch chan<- *github.Repository) error {
 	opt := &github.RepositoryListByOrgOptions{
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
@@ -341,7 +341,7 @@ func (rh *ForeachRepositoryExecutor) getRepositoriesForOrg(ctx context.Context, 
 	return nil
 }
 
-func (rh *ForeachRepositoryExecutor) getRepositoriesForUser(ctx context.Context, user string, ch chan<- *github.Repository) error {
+func (rh *RepositoryExecutor) getRepositoriesForUser(ctx context.Context, user string, ch chan<- *github.Repository) error {
 	opt := &github.RepositoryListByUserOptions{
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
@@ -368,7 +368,7 @@ func (rh *ForeachRepositoryExecutor) getRepositoriesForUser(ctx context.Context,
 	return nil
 }
 
-func (rh *ForeachRepositoryExecutor) getRepositoriesForAuthenticatedUser(ctx context.Context, ch chan<- *github.Repository) error {
+func (rh *RepositoryExecutor) getRepositoriesForAuthenticatedUser(ctx context.Context, ch chan<- *github.Repository) error {
 	opt := &github.RepositoryListByAuthenticatedUserOptions{
 		ListOptions: github.ListOptions{PerPage: 100},
 	}
@@ -395,7 +395,7 @@ func (rh *ForeachRepositoryExecutor) getRepositoriesForAuthenticatedUser(ctx con
 	return nil
 }
 
-func (rh *ForeachRepositoryExecutor) matchRepo(repo *github.Repository) bool {
+func (rh *RepositoryExecutor) matchRepo(repo *github.Repository) bool {
 	if rh.nameRegexp != nil {
 		if !rh.nameRegexp.MatchString(repo.GetName()) {
 			return false
@@ -435,7 +435,7 @@ func (rh *ForeachRepositoryExecutor) matchRepo(repo *github.Repository) bool {
 	return true
 }
 
-func (rh *ForeachRepositoryExecutor) execCommand(command string, dir string, stdout, stderr io.Writer) error {
+func (rh *RepositoryExecutor) execCommand(command string, dir string, stdout, stderr io.Writer) error {
 	commandSlice := strings.Fields(command)
 	var cmd *exec.Cmd
 	if len(command) > 1 {
@@ -452,7 +452,7 @@ func (rh *ForeachRepositoryExecutor) execCommand(command string, dir string, std
 	return nil
 }
 
-func (rh *ForeachRepositoryExecutor) cloneRepo(ctx context.Context, dest string, repo *github.Repository) error {
+func (rh *RepositoryExecutor) cloneRepo(ctx context.Context, dest string, repo *github.Repository) error {
 	var auth *http.BasicAuth
 	if rh.authUser != nil && rh.authToken != nil {
 		auth = &http.BasicAuth{

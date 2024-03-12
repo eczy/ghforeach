@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Args struct {
+type args struct {
 	Command string `arg:"positional"`
 
 	// authentication
@@ -45,7 +45,7 @@ func main() {
 }
 
 func mainErr() error {
-	args := &Args{}
+	args := &args{}
 	arg.MustParse(args)
 
 	var logger *zap.Logger
@@ -71,7 +71,7 @@ func mainErr() error {
 
 	ctx := context.Background()
 
-	opts := []ghforeach.ForeachRepositoryExecutorOption{
+	opts := []ghforeach.RepositoryExecutorOption{
 		ghforeach.WithClient(client),
 		ghforeach.WithLogger(logger),
 		ghforeach.WithCleanup(args.Cleanup),
@@ -115,7 +115,7 @@ func mainErr() error {
 		opts = append(opts, ghforeach.WithOutputFormat(ghforeach.JsonOutputFormat))
 	}
 
-	handler, err := ghforeach.NewForeachRepositoryExecutor(opts...)
+	handler, err := ghforeach.NewRepositoryExecutor(opts...)
 	if err != nil {
 		return err
 	}
