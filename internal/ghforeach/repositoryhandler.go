@@ -69,7 +69,7 @@ func WithUser(user string) RepositoryExecutorOption {
 	}
 }
 
-func WithNameExp(exp string) RepositoryExecutorOption {
+func WithNameRegexp(exp string) RepositoryExecutorOption {
 	return func(fre *RepositoryExecutor) error {
 		regexp, err := regexp.Compile(exp)
 		if err != nil {
@@ -90,7 +90,7 @@ func WithNameList(names []string) RepositoryExecutorOption {
 	}
 }
 
-func WithTopicExp(exp string) RepositoryExecutorOption {
+func WithTopicRegexp(exp string) RepositoryExecutorOption {
 	return func(fre *RepositoryExecutor) error {
 		regexp, err := regexp.Compile(exp)
 		if err != nil {
