@@ -82,6 +82,7 @@ func WithNameExp(exp string) RepositoryExecutorOption {
 
 func WithNameList(names []string) RepositoryExecutorOption {
 	return func(fre *RepositoryExecutor) error {
+		fre.nameSet = map[string]struct{}{}
 		for _, name := range names {
 			fre.nameSet[name] = struct{}{}
 		}
@@ -102,8 +103,9 @@ func WithTopicExp(exp string) RepositoryExecutorOption {
 
 func WithTopicList(topics []string) RepositoryExecutorOption {
 	return func(fre *RepositoryExecutor) error {
+		fre.topicSet = map[string]struct{}{}
 		for _, topic := range topics {
-			fre.nameSet[topic] = struct{}{}
+			fre.topicSet[topic] = struct{}{}
 		}
 		return nil
 	}

@@ -13,29 +13,29 @@ import (
 )
 
 type args struct {
-	Command string `arg:"positional"`
+	Command string `arg:"positional" help:"command to run at root of each repo."`
 
 	// authentication
-	AuthUser  *string `arg:"env:GH_AUTH_USER"`
-	AuthToken *string `arg:"env:GH_AUTH_TOKEN"`
+	AuthUser  *string `arg:"env:GH_AUTH_USER" help:"user for authenticating API requests."`
+	AuthToken *string `arg:"env:GH_AUTH_TOKEN" help:"token for authenticating API requests."`
 
 	// repo owner options
-	Org  *string `arg:"-o"`
-	User *string `arg:"-u"`
+	Org  *string `arg:"-o" help:"organization owning repositories to be iterated."`
+	User *string `arg:"-u" help:"user owning repositories to be iterated."`
 
 	// filtering parameters
-	NameExp   *string `arg:"-n"`
-	NameList  *string `arg:"-N"`
-	TopicExp  *string `arg:"-t"`
-	TopicList *string `arg:"-T"`
+	NameExp   *string `arg:"-n" help:"regular expression for matching repository names."`
+	NameList  *string `arg:"-N" help:"path to file containing repository names (\n separated)."`
+	TopicExp  *string `arg:"-t" help:"regular expression for matching topics."`
+	TopicList *string `arg:"-T" help:"path to file containing topics (\n separated)."`
 
 	// execution parameters
-	TmpDir    string `arg:"-d" default:"./tmp"`
-	Cleanup   bool   `arg:"-c"`
-	Overwrite bool   `arg:"-O"`
-	NThreads  int    `arg:"-p" default:"1"`
-	Json      bool   `arg:"-j"`
-	Debug     bool   `arg:"-D"`
+	TmpDir    string `arg:"-d" default:"./tmp" help:"directory into which repositories will be cloned."`
+	Cleanup   bool   `arg:"-c" help:"enable to delete TMPDIR after operations are complete."`
+	Overwrite bool   `arg:"-O" help:"enable to delete TMPDIR before operations start."`
+	NThreads  int    `arg:"-p" default:"1" help:"number of repositories that will be handled in parallel. -1 for unlimited."`
+	Json      bool   `arg:"-j" help:"enable to display output as JSON."`
+	Debug     bool   `arg:"-D" help:"enable to debug logging."`
 }
 
 func main() {
@@ -66,6 +66,7 @@ func mainErr() error {
 
 	client := github.NewClient(nil)
 	if args.AuthToken != nil {
+		logger.Debug("reading GH_AUTH_TOKEN token from env")
 		client = client.WithAuthToken(*args.AuthToken)
 	}
 
@@ -109,7 +110,7 @@ func mainErr() error {
 			return err
 		}
 		topicList := strings.Split(string(bytes), "\n")
-		opts = append(opts, ghforeach.WithNameList(topicList))
+		opts = append(opts, ghforeach.WithTopicList(topicList))
 	}
 	if args.Json {
 		opts = append(opts, ghforeach.WithOutputFormat(ghforeach.JsonOutputFormat))
