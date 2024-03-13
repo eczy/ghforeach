@@ -91,8 +91,7 @@ func TestGhForeach_integration(t *testing.T) {
 	}{
 		{
 			"name regex only",
-			"pwd",
-			// "touch foobar.txt && git branch -M main && git commit -m \"add foobar.txt\" && git push -u origin main",
+			"touch foobar.txt; git add .; git commit -m \"add foobar.txt\"; git push",
 			github.String("ghforeach-test-[01]"),
 			nil,
 			nil,
@@ -129,10 +128,12 @@ func TestGhForeach_integration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 			helper := newTestHelper(client, testOrg, 3)
+			defer func() {
+				t.Log("starting teardown")
+				helper.teardown(ctx, t)
+			}()
 			t.Log("starting setup")
-			defer helper.teardown(ctx, t)
 			err := helper.setup(ctx, t)
-			t.Log("setup done")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -141,8 +142,8 @@ func TestGhForeach_integration(t *testing.T) {
 				ghforeach.WithClient(client),
 				ghforeach.WithUserAuth(user, userToken),
 				ghforeach.WithOrg(testOrg),
-				ghforeach.WithCleanup(false),
-				ghforeach.WithOverwrite(false),
+				ghforeach.WithCleanup(true),
+				ghforeach.WithOverwrite(true),
 				ghforeach.WithTmpDir("integ-tmp"),
 				ghforeach.WithLogger(logger),
 			}

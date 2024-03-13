@@ -2,6 +2,7 @@ package ghforeach
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 
@@ -23,11 +24,12 @@ type Args struct {
 
 	// filtering parameters
 	NameExp   *string `arg:"-n" help:"regular expression for matching repository names."`
-	NameList  *string `arg:"-N" help:"path to file containing repository names (\n separated)."`
+	NameList  *string `arg:"-N" help:"path to file containing repository names (newline separated)."`
 	TopicExp  *string `arg:"-t" help:"regular expression for matching topics."`
-	TopicList *string `arg:"-T" help:"path to file containing topics (\n separated)."`
+	TopicList *string `arg:"-T" help:"path to file containing topics (newline separated)."`
 
 	// execution parameters
+	Shell     string `arg:"-s" default:"/bin/sh" help:"path to shell used to run command."`
 	TmpDir    string `arg:"-d" default:"./tmp" help:"directory into which repositories will be cloned."`
 	Cleanup   bool   `arg:"-c" help:"enable to delete TMPDIR after operations are complete."`
 	Overwrite bool   `arg:"-O" help:"enable to delete TMPDIR before operations start."`
@@ -74,6 +76,7 @@ func RunWithArgs(args *Args) error {
 		WithOverwrite(args.Overwrite),
 		WithConcurrency(args.NThreads),
 		WithTmpDir(args.TmpDir),
+		WithShellPath(args.Shell),
 	}
 
 	if args.AuthUser != nil && args.AuthToken != nil {
@@ -115,6 +118,8 @@ func RunWithArgs(args *Args) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("running repository handler")
+	if len(args.Command) == 0 {
+		return fmt.Errorf("no command provided")
+	}
 	return handler.Go(ctx, args.Command)
 }

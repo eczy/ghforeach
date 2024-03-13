@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
-	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
@@ -168,6 +167,13 @@ func WithOutputFormat(format RepositoryExecutorOutputFormat) RepositoryExecutorO
 	}
 }
 
+func WithShellPath(path string) RepositoryExecutorOption {
+	return func(fre *RepositoryExecutor) error {
+		fre.shellPath = path
+		return nil
+	}
+}
+
 type RepositoryExecutor struct {
 	// api parameters
 	client    *github.Client
@@ -182,6 +188,7 @@ type RepositoryExecutor struct {
 	topicSet    map[string]struct{}
 
 	// operation parameters
+	shellPath    string
 	overwrite    bool
 	cleanup      bool
 	tmpDir       string
@@ -198,9 +205,11 @@ func NewRepositoryExecutor(opts ...RepositoryExecutorOption) (*RepositoryExecuto
 	}
 
 	exec := &RepositoryExecutor{
-		client: github.NewClient(nil),
-		logger: zap.L(),
-		tmpDir: path.Join(wd, "tmp"),
+		client:      github.NewClient(nil),
+		logger:      zap.L(),
+		tmpDir:      path.Join(wd, "tmp"),
+		concurrency: 1,
+		shellPath:   "/bin/sh",
 	}
 
 	for _, opt := range opts {
@@ -252,50 +261,63 @@ func (rh *RepositoryExecutor) Go(ctx context.Context, command string) error {
 		repoG, repoCtx := errgroup.WithContext(ctx)
 		repoG.SetLimit(rh.concurrency)
 		for repo := range repoCh {
-			repoG.Go(func() error {
-				repoDir := path.Join(rh.tmpDir, repo.GetName())
-				if _, err := os.Stat(repoDir); errors.Is(err, os.ErrNotExist) {
-					err := rh.cloneRepo(repoCtx, repoDir, repo)
-					if err != nil {
-						return err
+			select {
+			case <-ctx.Done():
+				rh.logger.Error("context error", zap.Error(ctx.Err()))
+			default:
+				repoG.Go(func() error {
+					repoDir := path.Join(rh.tmpDir, repo.GetName())
+					rh.logger.Debug("processing repo", zap.String("path", repoDir))
+					if _, err := os.Stat(repoDir); errors.Is(err, os.ErrNotExist) {
+						err := rh.cloneRepo(repoCtx, repoDir, repo)
+						if err != nil {
+							rh.logger.Error("error cloning repo", zap.Error(err))
+							return nil
+						}
 					}
-				}
 
-				if rh.cleanup {
-					defer func() {
-						os.RemoveAll(repoDir)
-					}()
-				}
+					if rh.cleanup {
+						defer func() {
+							os.RemoveAll(repoDir)
+						}()
+					}
 
-				stdoutBuf := &bytes.Buffer{}
-				stderrBuf := &bytes.Buffer{}
-				err := rh.execCommand(command, repoDir, stdoutBuf, stderrBuf)
-				resultCh <- &executionResult{
-					Path:    repoDir,
-					Command: command,
-					Stdout:  stdoutBuf.String(),
-					Stderr:  stderrBuf.String(),
-					Error:   err,
-				}
-				return nil
-			})
+					stdoutBuf := &bytes.Buffer{}
+					stderrBuf := &bytes.Buffer{}
+					err := rh.execCommand(command, repoDir, stdoutBuf, stderrBuf)
+					resultCh <- &executionResult{
+						Path:    repoDir,
+						Command: command,
+						Stdout:  stdoutBuf.String(),
+						Stderr:  stderrBuf.String(),
+						Error:   err,
+					}
+					return nil
+				})
+			}
 		}
 		return repoG.Wait()
 	})
 
 	g.Go(func() error {
 		for result := range resultCh {
-			switch rh.outputFormat {
-			case JsonOutputFormat:
-				str, err := result.JsonString()
-				if err != nil {
-					rh.logger.Error("error marshalling result to json", zap.Error(err))
-				}
-				fmt.Println(str)
-			case ConsoleOutputFormat:
-				fmt.Println(result.String())
+			select {
+			case <-ctx.Done():
+				rh.logger.Error("context error", zap.Error(ctx.Err()))
 			default:
-				rh.logger.Error("invalid output format", zap.Any("format", rh.outputFormat))
+				switch rh.outputFormat {
+				case JsonOutputFormat:
+					str, err := result.JsonString()
+					if err != nil {
+						rh.logger.Error("error marshalling result to json", zap.Error(err))
+					} else {
+						fmt.Println(str)
+					}
+				case ConsoleOutputFormat:
+					fmt.Println(result.String())
+				default:
+					rh.logger.Error("invalid output format", zap.Any("format", rh.outputFormat))
+				}
 			}
 		}
 		return nil
@@ -308,9 +330,11 @@ func (rh *RepositoryExecutor) getRepositories(ctx context.Context, ch chan<- *gi
 	if rh.org != nil {
 		rh.logger.Debug("fetching organization repositories", zap.String("org", *rh.org))
 		return rh.getRepositoriesForOrg(ctx, *rh.org, ch)
-	} else if rh.authUser != nil && rh.authToken != nil {
+	} else if rh.authUser != nil && rh.authToken != nil && rh.user != nil && *rh.authUser == *rh.user {
+		rh.logger.Debug("fetching user repositories", zap.String("user", *rh.user))
 		return rh.getRepositoriesForAuthenticatedUser(ctx, ch)
 	} else if rh.user != nil {
+		rh.logger.Debug("fetching user repositories", zap.String("user", *rh.user))
 		return rh.getRepositoriesForUser(ctx, *rh.user, ch)
 	} else {
 		return fmt.Errorf("no user or org specified")
@@ -333,6 +357,7 @@ func (rh *RepositoryExecutor) getRepositoriesForOrg(ctx context.Context, org str
 		}
 		for _, repo := range repos {
 			if rh.matchRepo(repo) {
+				rh.logger.Debug("matched repository", zap.String("repo", repo.GetName()))
 				ch <- repo
 			}
 		}
@@ -439,21 +464,12 @@ func (rh *RepositoryExecutor) matchRepo(repo *github.Repository) bool {
 }
 
 func (rh *RepositoryExecutor) execCommand(command string, dir string, stdout, stderr io.Writer) error {
-	commandSlice := strings.Fields(command)
-	var cmd *exec.Cmd
-	if len(command) > 1 {
-		cmd = exec.Command(commandSlice[0], commandSlice[1:]...)
-	} else if len(command) == 1 {
-		cmd = exec.Command(commandSlice[0])
-	} else {
-		return fmt.Errorf("no command provided")
-	}
+	cmd := exec.Command(rh.shellPath, "-c", command)
 	cmd.Dir = dir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
-		cd, _ := os.Getwd()
-		rh.logger.Error("error running command", zap.Error(err), zap.String("cd", cd))
+		rh.logger.Error("error running command", zap.Error(err))
 		return err
 	}
 	return nil
