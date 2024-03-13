@@ -39,7 +39,10 @@ type Args struct {
 func Run() error {
 	args := &Args{}
 	arg.MustParse(args)
+	return RunWithArgs(args)
+}
 
+func RunWithArgs(args *Args) error {
 	var logger *zap.Logger
 	if args.Debug {
 		l, err := zap.NewDevelopment()
@@ -113,5 +116,5 @@ func Run() error {
 		return err
 	}
 	logger.Info("running repository handler")
-	return handler.Go(args.Command, ctx)
+	return handler.Go(ctx, args.Command)
 }

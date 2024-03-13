@@ -213,7 +213,7 @@ func NewRepositoryExecutor(opts ...RepositoryExecutorOption) (*RepositoryExecuto
 	return exec, nil
 }
 
-func (rh *RepositoryExecutor) Go(command string, ctx context.Context) error {
+func (rh *RepositoryExecutor) Go(ctx context.Context, command string) error {
 	if rh.overwrite {
 		rh.logger.Debug("removing temp directory", zap.String("path", rh.tmpDir))
 		err := os.RemoveAll(rh.tmpDir)
@@ -223,8 +223,9 @@ func (rh *RepositoryExecutor) Go(command string, ctx context.Context) error {
 	}
 
 	if _, err := os.Stat(rh.tmpDir); errors.Is(err, os.ErrNotExist) {
-		rh.logger.Debug("creating temp directory", zap.String("path", rh.tmpDir))
-		err := os.Mkdir(rh.tmpDir, 0700)
+		cd, _ := os.Getwd()
+		rh.logger.Debug("creating temp directory", zap.String("path", rh.tmpDir), zap.String("cd", cd))
+		err := os.MkdirAll(rh.tmpDir, 0700)
 		if err != nil {
 			return err
 		}
@@ -442,13 +443,17 @@ func (rh *RepositoryExecutor) execCommand(command string, dir string, stdout, st
 	var cmd *exec.Cmd
 	if len(command) > 1 {
 		cmd = exec.Command(commandSlice[0], commandSlice[1:]...)
-	} else {
+	} else if len(command) == 1 {
 		cmd = exec.Command(commandSlice[0])
+	} else {
+		return fmt.Errorf("no command provided")
 	}
 	cmd.Dir = dir
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
+		cd, _ := os.Getwd()
+		rh.logger.Error("error running command", zap.Error(err), zap.String("cd", cd))
 		return err
 	}
 	return nil
@@ -467,6 +472,7 @@ func (rh *RepositoryExecutor) cloneRepo(ctx context.Context, dest string, repo *
 		Auth: auth,
 	})
 	if err != nil {
+		rh.logger.Error("error cloning repo", zap.Error(err))
 		return err
 	}
 	return nil
