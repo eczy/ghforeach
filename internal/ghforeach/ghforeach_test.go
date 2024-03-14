@@ -50,11 +50,14 @@ func (th *testHelper) setup(ctx context.Context, t *testing.T) error {
 	for i := 0; i < th.nRepos; i++ {
 		name := th.intToRepoName(i)
 		_, _, err := th.client.Repositories.Create(ctx, th.org, &github.Repository{
-			Name:   github.String(name),
-			Topics: []string{fmt.Sprintf("topic-%d", i)},
+			Name: github.String(name),
 		})
 		if err != nil {
 			t.Logf("creating repo: %v", err)
+		}
+		_, _, err = th.client.Repositories.ReplaceAllTopics(ctx, th.org, name, []string{fmt.Sprintf("topic-%d", i)})
+		if err != nil {
+			t.Logf("replacing repo topics: %v", err)
 		}
 		_, _, err = th.client.Repositories.CreateFile(ctx, th.org, name, "README.md", &github.RepositoryContentFileOptions{
 			Message: github.String("initial commit"),
@@ -96,6 +99,48 @@ func TestGhForeach_integration(t *testing.T) {
 			nil,
 			nil,
 			nil,
+			map[string]struct{}{
+				"ghforeach-test-0": {},
+				"ghforeach-test-1": {},
+			},
+		},
+		{
+			"topic regex only",
+			"touch foobar.txt; git add .; git commit -m \"add foobar.txt\"; git push",
+			nil,
+			nil,
+			github.String("topic-[01]"),
+			nil,
+			map[string]struct{}{
+				"ghforeach-test-0": {},
+				"ghforeach-test-1": {},
+			},
+		},
+		{
+			"name list only",
+			"touch foobar.txt; git add .; git commit -m \"add foobar.txt\"; git push",
+			nil,
+			[]string{
+				"ghforeach-test-0",
+				"ghforeach-test-1",
+			},
+			nil,
+			nil,
+			map[string]struct{}{
+				"ghforeach-test-0": {},
+				"ghforeach-test-1": {},
+			},
+		},
+		{
+			"topic list only",
+			"touch foobar.txt; git add .; git commit -m \"add foobar.txt\"; git push",
+			nil,
+			nil,
+			nil,
+			[]string{
+				"topic-0",
+				"topic-1",
+			},
 			map[string]struct{}{
 				"ghforeach-test-0": {},
 				"ghforeach-test-1": {},
