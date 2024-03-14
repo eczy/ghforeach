@@ -267,11 +267,10 @@ func (rh *RepositoryExecutor) Go(ctx context.Context, command string) error {
 			default:
 				repoG.Go(func() error {
 					repoDir := path.Join(rh.tmpDir, repo.GetName())
-					rh.logger.Debug("processing repo", zap.String("path", repoDir))
 					if _, err := os.Stat(repoDir); errors.Is(err, os.ErrNotExist) {
 						err := rh.cloneRepo(repoCtx, repoDir, repo)
 						if err != nil {
-							rh.logger.Error("error cloning repo", zap.Error(err))
+							rh.logger.Error("error cloning repository", zap.String("repository", repo.GetName()), zap.Error(err))
 							return nil
 						}
 					}
@@ -285,6 +284,9 @@ func (rh *RepositoryExecutor) Go(ctx context.Context, command string) error {
 					stdoutBuf := &bytes.Buffer{}
 					stderrBuf := &bytes.Buffer{}
 					err := rh.execCommand(command, repoDir, stdoutBuf, stderrBuf)
+					if err != nil {
+						rh.logger.Error("error executing command", zap.String("command", command), zap.Error(err))
+					}
 					resultCh <- &executionResult{
 						Path:    repoDir,
 						Command: command,
@@ -328,7 +330,7 @@ func (rh *RepositoryExecutor) Go(ctx context.Context, command string) error {
 
 func (rh *RepositoryExecutor) getRepositories(ctx context.Context, ch chan<- *github.Repository) error {
 	if rh.org != nil {
-		rh.logger.Debug("fetching organization repositories", zap.String("org", *rh.org))
+		rh.logger.Debug("fetching organization repositories", zap.String("organization", *rh.org))
 		return rh.getRepositoriesForOrg(ctx, *rh.org, ch)
 	} else if rh.authUser != nil && rh.authToken != nil && rh.user != nil && *rh.authUser == *rh.user {
 		rh.logger.Debug("fetching user repositories", zap.String("user", *rh.user))
@@ -357,7 +359,6 @@ func (rh *RepositoryExecutor) getRepositoriesForOrg(ctx context.Context, org str
 		}
 		for _, repo := range repos {
 			if rh.matchRepo(repo) {
-				rh.logger.Debug("matched repository", zap.String("repo", repo.GetName()))
 				ch <- repo
 			}
 		}
@@ -469,7 +470,6 @@ func (rh *RepositoryExecutor) execCommand(command string, dir string, stdout, st
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
-		rh.logger.Error("error running command", zap.Error(err))
 		return err
 	}
 	return nil
@@ -488,7 +488,6 @@ func (rh *RepositoryExecutor) cloneRepo(ctx context.Context, dest string, repo *
 		Auth: auth,
 	})
 	if err != nil {
-		rh.logger.Error("error cloning repo", zap.Error(err))
 		return err
 	}
 	return nil
