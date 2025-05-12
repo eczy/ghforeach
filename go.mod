@@ -1,6 +1,7 @@
 module github.com/eczy/ghforeach
 
-go 1.22.1
+go 1.23.0
+
 toolchain go1.23.7
 
 require github.com/alexflint/go-arg v1.5.1
@@ -36,5 +37,5 @@ require (
 	github.com/google/go-github/v60 v60.0.0
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0
-	golang.org/x/sync v0.12.0
+	golang.org/x/sync v0.14.0
 )
